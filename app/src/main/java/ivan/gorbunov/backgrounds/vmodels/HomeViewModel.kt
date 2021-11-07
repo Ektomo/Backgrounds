@@ -3,9 +3,12 @@ package ivan.gorbunov.backgrounds.vmodels
 import androidx.compose.runtime.mutableStateListOf
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
+import dagger.hilt.android.lifecycle.HiltViewModel
 import ivan.gorbunov.backgrounds.pojo.VideoItem
+import javax.inject.Inject
 
-class HomeViewModel: ViewModel() {
+@HiltViewModel
+class HomeViewModel @Inject constructor() : ViewModel() {
     var videos = MutableLiveData<List<VideoItem>>()
     val currentlyPlayingIndex = MutableLiveData<Int?>()
     var urls = MutableLiveData<List<String>>()

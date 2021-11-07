@@ -7,15 +7,23 @@ import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Scaffold
 import androidx.compose.material.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.google.android.gms.ads.MobileAds
+import dagger.hilt.android.AndroidEntryPoint
 import ivan.gorbunov.backgrounds.navigation.BottomNavigationBar
 import ivan.gorbunov.backgrounds.navigation.Navigation
 import ivan.gorbunov.backgrounds.navigation.TopBar
 import ivan.gorbunov.backgrounds.ui.theme.BackgroundsTheme
+import kotlinx.serialization.ExperimentalSerializationApi
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         MobileAds.initialize(this)
@@ -31,15 +39,47 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@ExperimentalSerializationApi
 @Composable
 fun MainScreen() {
     val navController = rememberNavController()
-
-    Scaffold (
-        topBar = { TopBar(title = "Title", visibleBack = true) },
-        bottomBar = { BottomNavigationBar(navController) }
-    ){
-        Navigation(navController)
+    val isShowTopBar = remember {
+        mutableStateOf(true)
     }
+
+    val isShoBottomBar = remember {
+        mutableStateOf(true)
+    }
+
+    val title = remember {
+        mutableStateOf(Any())
+    }
+
+    Scaffold(
+        topBar = {
+            if (isShowTopBar.value) {
+                TopBar(title = title.value)
+            }
+        },
+        bottomBar = {
+            if (isShoBottomBar.value) {
+                BottomNavigationBar(navController)
+            }
+        }
+    ) {
+        Navigation(navController, title, isShowTopBar, isShoBottomBar)
+    }
+
+
 }
+
+//@Composable
+//fun rememberMyAppState(
+//    scaffoldState: ScaffoldState = rememberScaffoldState(),
+//    navController: NavHostController = rememberNavController(),
+//    resources: Resources = LocalContext.current.resources,
+//    /* ... */
+//) = remember(scaffoldState, navController, resources, /* ... */) {
+//    MainScreen(scaffoldState, navController, resources, /* ... */)
+//}
 

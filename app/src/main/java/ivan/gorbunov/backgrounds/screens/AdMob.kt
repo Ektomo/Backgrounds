@@ -27,7 +27,7 @@ fun AdMobView(modifier: Modifier = Modifier, type: AdMobType) {
             modifier = modifier
                 .fillMaxWidth()
                 .background(Color.Red)
-                .padding(horizontal = 2.dp, vertical = 6.dp),
+                .padding(vertical = 6.dp),
             textAlign = TextAlign.Center,
             color = Color.White,
             text = "Advert Here",
@@ -64,7 +64,7 @@ fun AdMobView(modifier: Modifier = Modifier, type: AdMobType) {
                     modifier = modifier.fillMaxWidth(),
                     factory = { context ->
                         AdView(context).apply {
-                            adSize = AdSize.BANNER
+                            adSize = AdSize(AdSize.FULL_WIDTH, AdSize.AUTO_HEIGHT)
                             adUnitId = "ca-app-pub-3940256099942544/6300978111"
                             loadAd(AdRequest.Builder().build())
                             this.adListener = object : AdListener(){
