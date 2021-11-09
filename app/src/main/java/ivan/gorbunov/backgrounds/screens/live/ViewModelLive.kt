@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import ivan.gorbunov.backgrounds.api.ApiService
 import ivan.gorbunov.backgrounds.pojo.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.serialization.ExperimentalSerializationApi
 import javax.inject.Inject
@@ -39,15 +40,15 @@ class ViewModelLive @Inject constructor() : ViewModel() {
 
     @ExperimentalSerializationApi
     fun getLiveBackgrounds() {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.Default) {
             try{
-                curState.value = State.Loading
+                curState.postValue(State.Loading)
                 val apiService = ApiService.getInstance()
                 val a = apiService.getLiveBackgrounds()
-                curState.value = State.Data(a)
+                curState.postValue( State.Data(a))
 //                _items.value = a
             }catch (e: Exception){
-                curState.value = State.Error(e.message)
+                curState.postValue(State.Error(e.message))
             }
 
         }
@@ -56,14 +57,14 @@ class ViewModelLive @Inject constructor() : ViewModel() {
 
 
     fun getPreviewLiveBackgrounds(url: String) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.Default) {
             try{
-                curState.value = State.Loading
+                curState.postValue(State.Loading)
                 val apiService = ApiService.getInstance()
                 val a = apiService.getLivePreview(url)
-                curState.value = State.Detail(a)
+                curState.postValue(State.Detail(a))
             }catch (e: Exception){
-                curState.value = State.Error(e.message)
+                curState.postValue(State.Error(e.message))
             }
 
         }

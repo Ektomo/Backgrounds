@@ -9,6 +9,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import ivan.gorbunov.backgrounds.api.ApiService
 import ivan.gorbunov.backgrounds.pojo.Backgrounds4K
 import ivan.gorbunov.backgrounds.pojo.Preview4KBackGrounds
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.serialization.ExperimentalSerializationApi
 import javax.inject.Inject
@@ -42,15 +43,15 @@ class ViewModel4K @Inject constructor() : ViewModel() {
 
     @ExperimentalSerializationApi
     fun get4KBackgrounds() {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.Default) {
             try{
-                curState.value = State.Loading
+                curState.postValue( State.Loading)
                 val apiService = ApiService.getInstance()
                 val a = apiService.get4kBackgrounds()
-                curState.value = State.Data(a)
+                curState.postValue(State.Data(a))
 //                _items.value = a
             }catch (e: Exception){
-                curState.value = State.Error(e.message)
+                curState.postValue(State.Error(e.message))
             }
 
         }
@@ -59,14 +60,14 @@ class ViewModel4K @Inject constructor() : ViewModel() {
 
 
     fun getDetail4KBackgrounds(url: String) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.Default) {
             try{
-                curState.value = State.Loading
+                curState.postValue( State.Loading)
                 val apiService = ApiService.getInstance()
                 val a = apiService.get4Preview(url)
-                curState.value = State.Detail(a)
+                curState.postValue(State.Detail(a))
             }catch (e: Exception){
-                curState.value = State.Error(e.message)
+                curState.postValue(State.Error(e.message))
             }
 
         }

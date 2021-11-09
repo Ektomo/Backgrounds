@@ -21,8 +21,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -56,11 +58,12 @@ fun MainScreen(
     val circularProgressDrawable = CircularProgressDrawable(LocalContext.current)
     circularProgressDrawable.strokeWidth = 5f
     circularProgressDrawable.centerRadius = 30f
+    title.value = R.drawable.ic_group_7476
 
     Crossfade(targetState = curState.value) { state ->
         when (state) {
             is MainViewModel.State.Data -> {
-                title.value = R.drawable.ic_group_7476
+
                 viewModel.curMainBackground.value = state.data
                 circularProgressDrawable.start()
                 MainListScreen(
@@ -161,11 +164,11 @@ fun MainListScreen(
                 }
                 previews.forEach { list ->
                     item {
-                    MainPreviewItem(
-                        item = list,
-                        circularProgressDrawable = circularProgressDrawable,
-                        viewModel = viewModel
-                    )
+                        MainPreviewItem(
+                            item = list,
+                            circularProgressDrawable = circularProgressDrawable,
+                            viewModel = viewModel
+                        )
                     }
                 }
 
@@ -226,53 +229,44 @@ fun FavoriteHorizontalList(
 
 
     Spacer(modifier = Modifier.padding(vertical = 6.dp))
-
-    LazyRow(state = stateList!!) {
-        favoriteList.forEachIndexed { i, fCat ->
-            item {
-                Image(
-                    painter = rememberImagePainter(data = "$baseUrl${fCat.urlPhoto}",
-                        builder = {
-                            transformations(RoundedCornersTransformation(20.0f, 20.0f, 20f, 20f))
-                        }),
-                    contentDescription = null,
-                    modifier = Modifier
-                        .height(height.div(3))
-                        .width(width),
-                )
-                if (i < favoriteList.size - 1) {
-                    Spacer(modifier = Modifier.padding(6.dp))
+    Column(Modifier.padding(horizontal = 2.dp)) {
+        LazyRow(state = stateList!!) {
+            favoriteList.forEachIndexed { i, fCat ->
+                item {
+                    Image(
+                        painter = rememberImagePainter(data = "$baseUrl${fCat.urlPhoto}",
+                            builder = {
+                                transformations(RoundedCornersTransformation(30.0f, 30.0f, 30f, 30f))
+                            }),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .height(height.div(3))
+                            .width(width),
+                    )
+                    if (i < favoriteList.size - 1) {
+                        Spacer(modifier = Modifier.padding(6.dp))
+                    }
                 }
             }
-        }
-        for (i in favoriteList.indices) {
-            if (i == stateList.firstVisibleItemIndex) {
-                item {
-                    drawCustomCircle(color = Color.Blue)
-                }
 
-            } else {
-                item {
-                    drawCustomCircle(color = Color.Black)
+        }
+        Spacer(modifier = Modifier.padding(vertical = 4.dp))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center){
+            for (i in favoriteList.indices) {
+                if (i == stateList.firstVisibleItemIndex) {
+                    Image(imageVector = ImageVector.vectorResource(id = R.drawable.ic_ellipse_choose), contentDescription = "choose", modifier = Modifier.size(9.dp))
+                } else {
+                    Image(imageVector = ImageVector.vectorResource(id = R.drawable.ic_ellipse), "ellipse")
                 }
+                Spacer(modifier = Modifier.padding(horizontal = 1.dp))
             }
         }
+        Spacer(modifier = Modifier.padding(vertical = 4.dp))
     }
+
 
 }
 
-@Composable
-fun drawCustomCircle(color: Color) {
-    Canvas(modifier = Modifier.fillMaxSize()) {
-        val canvasWidth = size.width
-        val canvasHeight = size.height
-        drawCircle(
-            color = color,
-            center = Offset(x = canvasWidth / 2, y = canvasHeight / 2),
-            radius = size.minDimension / 20
-        )
-    }
-}
 
 @ExperimentalSerializationApi
 @Composable

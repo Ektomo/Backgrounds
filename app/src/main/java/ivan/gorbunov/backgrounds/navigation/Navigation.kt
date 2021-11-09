@@ -5,6 +5,7 @@ import androidx.compose.runtime.MutableState
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import ivan.gorbunov.backgrounds.R
 import ivan.gorbunov.backgrounds.screens.ImageScreen
 import ivan.gorbunov.backgrounds.screens.fourk.Screen4kList
 import ivan.gorbunov.backgrounds.screens.live.ScreenLiveList
@@ -23,11 +24,15 @@ fun Navigation(
 ) {
     NavHost(navController, startDestination = NavigationItem.Home.route) {
         composable(NavigationItem.Home.route) {
+            isShowBottom.value = true
+            isShowTop.value = false
+
             TopScreen(
                 navController, isShowTop, isShowBottom, title
             )
         }
         composable(NavigationItem.Image.route) {
+            title.value = R.drawable.ic_group_7476
             isShowBottom.value = true
             isShowTop.value = true
             MainScreen(navController, isShowTop, isShowBottom, title)

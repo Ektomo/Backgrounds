@@ -2,6 +2,7 @@ package ivan.gorbunov.backgrounds
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Scaffold
@@ -30,6 +31,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             BackgroundsTheme {
                 val coroutineScope = rememberCoroutineScope()
+
                 // A surface container using the 'background' color from the theme
                 Surface(color = MaterialTheme.colors.background) {
                     MainScreen()
@@ -42,6 +44,7 @@ class MainActivity : ComponentActivity() {
 @ExperimentalSerializationApi
 @Composable
 fun MainScreen() {
+    val onBack: (() -> Unit)? = null
     val navController = rememberNavController()
     val isShowTopBar = remember {
         mutableStateOf(true)
@@ -58,7 +61,7 @@ fun MainScreen() {
     Scaffold(
         topBar = {
             if (isShowTopBar.value) {
-                TopBar(title = title.value)
+                TopBar(title = title.value, onBack)
             }
         },
         bottomBar = {

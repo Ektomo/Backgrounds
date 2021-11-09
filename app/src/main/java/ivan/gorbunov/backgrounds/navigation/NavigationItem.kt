@@ -34,7 +34,7 @@ sealed class NavigationItem(var route: String, var icon: Int) {
 @Composable
 fun TopBar(
     title: Any,
-//           onBack: () -> Unit
+    onBack: (() -> Unit)?
 ) {
     val appBarHorizontalPadding = 4.dp
     val titleIconModifier = Modifier
@@ -54,7 +54,9 @@ fun TopBar(
                 ) {
                     IconButton(
                         onClick = {
-//                                onBack()
+                            if (onBack != null) {
+                                onBack()
+                            }
                         },
                         enabled = true,
                     ) {

@@ -72,14 +72,14 @@ class ViewModel3D @Inject constructor(): ViewModel() {
 
 
     fun getPreviews3D(url: String) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.Default) {
             try{
-                curState.value = State.Loading
+                curState.postValue(State.Loading)
                 val apiService = ApiService.getInstance()
                 val a = apiService.get3DPreview(url)
-                curState.value = State.Detail(a)
+                curState.postValue(State.Detail(a))
             }catch (e: Exception){
-                curState.value = State.Error(e.message)
+                curState.postValue(State.Error(e.message))
             }
 
         }
@@ -89,7 +89,6 @@ class ViewModel3D @Inject constructor(): ViewModel() {
         viewModelScope.launch(Dispatchers.Default) {
             try {
                 curState.postValue(State.Loading)
-                val apiService = ApiService.getInstance()
                 val name = source.preview_url.split("/")
                     .dropLast(1).joinToString("")
                     .replace("/", "").replace(" ", "")
@@ -129,41 +128,5 @@ class ViewModel3D @Inject constructor(): ViewModel() {
 
         }
     }
-
-//    private fun saveToRoot(context: Context, response: ResponseBody?, name: String, fileName: String, ext: String): File?{
-//        if(response == null){
-//            return null
-//        }
-//        var filePath = context.filesDir.toString()
-//        val fileFolder = File("$filePath/3dCache/")
-//        if (!fileFolder.exists()) fileFolder.mkdir()
-//        filePath = "$filePath/3dCache/$name/"
-//        val fileConPath = File(filePath)
-//        if (!fileConPath.exists()) fileConPath.mkdir()
-//        var input: InputStream? = null
-//        try {
-//            input = response.byteStream()
-//            //val file = File(getCacheDir(), "cacheFileAppeal.srl")
-//            val file = File("$filePath$fileName.$ext")
-//            if (!file.exists()) file.createNewFile()
-//            val fos = FileOutputStream("$filePath$fileName.$ext")
-//            fos.use { output ->
-//                val buffer = ByteArray(4 * 1024) // or other buffer size
-//                var read: Int
-//                while (input.read(buffer).also { read = it } != -1) {
-//                    output.write(buffer, 0, read)
-//                }
-//                output.flush()
-//            }
-//            return File("$filePath$fileName.$ext")
-//        }catch (e:Exception){
-//            Log.e("saveFile",e.toString())
-//        }
-//        finally {
-//            input?.close()
-//        }
-//        return null
-//    }
-
 
 }

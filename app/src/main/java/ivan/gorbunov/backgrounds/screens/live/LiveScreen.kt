@@ -43,6 +43,7 @@ import androidx.navigation.NavHostController
 import androidx.swiperefreshlayout.widget.CircularProgressDrawable
 import coil.compose.rememberImagePainter
 import coil.transform.RoundedCornersTransformation
+import com.google.android.exoplayer2.ExoPlayer
 import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.Player.REPEAT_MODE_ONE
 import com.google.android.exoplayer2.SimpleExoPlayer
@@ -296,7 +297,7 @@ fun ScreenLive(item: String, onBack: () -> Unit) {
     val context = LocalContext.current
     val playPause = remember { mutableStateOf(true) }
     val exoPlayer = remember(context) {
-        SimpleExoPlayer.Builder(context).build().apply {
+        ExoPlayer.Builder(context).build().apply {
             val dataSourceFactory: com.google.android.exoplayer2.upstream.DataSource.Factory =
                 DefaultDataSourceFactory(
                     context,
