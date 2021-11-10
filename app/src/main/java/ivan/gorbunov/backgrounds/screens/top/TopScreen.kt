@@ -3,6 +3,7 @@ package ivan.gorbunov.backgrounds.screens.top
 import android.content.Context
 import android.net.Uri
 import android.view.View
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -45,21 +46,20 @@ import ivan.gorbunov.backgrounds.screens.AdMobType
 import ivan.gorbunov.backgrounds.screens.AdMobView
 import ivan.gorbunov.backgrounds.screens.LoadingView
 import ivan.gorbunov.backgrounds.screens.fourk.ButtonSave
+import kotlinx.serialization.ExperimentalSerializationApi
 import java.util.*
 import kotlin.math.abs
 
+@ExperimentalSerializationApi
 @Composable
 fun TopScreen(
-    navHostController: NavHostController,
     isShowTop: MutableState<Boolean>,
     isShowBottom: MutableState<Boolean>,
-    title: MutableState<Any>
+    onBack: () -> Unit
 ) {
 
     val viewModel = hiltViewModel<TopViewModel>()
     val curState = viewModel.curState.observeAsState()
-    val curRememberListState =
-        if (viewModel.rememberListState.value == null) rememberLazyListState() else viewModel.rememberListState.value
 
     Crossfade(targetState = curState.value) { state ->
         when (state) {
@@ -80,12 +80,13 @@ fun TopScreen(
         }
     }
 
-
+    BackHandler(true, onBack )
 
 }
 
 
 
+@ExperimentalSerializationApi
 @Composable
 fun ExoPlayerColumnAutoplayScreen(
     viewModel: TopViewModel
@@ -93,6 +94,9 @@ fun ExoPlayerColumnAutoplayScreen(
 ) {
     val listState =
         if (viewModel.rememberListState.value == null) rememberLazyListState() else viewModel.rememberListState.value
+    if (viewModel.rememberListState.value == null){
+        viewModel.rememberListState.value = listState
+    }
     val videos = viewModel.curStateTopBackground.observeAsState()
 
 
@@ -105,7 +109,7 @@ fun ExoPlayerColumnAutoplayScreen(
             videos.value?.array?.forEachIndexed { i, video ->
                 item {
                     ScreenTop(item = video.url, i, listState, maxWidth, maxHeight)
-                    
+
                 }
 
             }

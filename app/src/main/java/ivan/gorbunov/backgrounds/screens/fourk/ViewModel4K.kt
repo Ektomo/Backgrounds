@@ -22,9 +22,15 @@ class ViewModel4K @Inject constructor() : ViewModel() {
     val curState = MutableLiveData<State>(State.Loading)
     val curStateDetailBackground = MutableLiveData<Preview4KBackGrounds>()
     val curState4KList = MutableLiveData<List<Backgrounds4K>>()
+    val nestedStateStack = MutableLiveData<MutableList<State>>(mutableListOf())
 
     val rememberListState = MutableLiveData<LazyListState>()
     val rememberPreviewState = MutableLiveData<LazyListState>()
+
+    var onBack = {
+        nestedStateStack.value!!.removeLast()
+        curState.value = nestedStateStack.value!!.last()
+    }
 
 
 
@@ -43,12 +49,17 @@ class ViewModel4K @Inject constructor() : ViewModel() {
 
     @ExperimentalSerializationApi
     fun get4KBackgrounds() {
+
         viewModelScope.launch(Dispatchers.Default) {
             try{
                 curState.postValue( State.Loading)
                 val apiService = ApiService.getInstance()
                 val a = apiService.get4kBackgrounds()
-                curState.postValue(State.Data(a))
+                val state = State.Data(a)
+                val stack = nestedStateStack.value
+                stack!!.add(state)
+                nestedStateStack.postValue(stack)
+                curState.postValue(state)
 //                _items.value = a
             }catch (e: Exception){
                 curState.postValue(State.Error(e.message))
@@ -65,7 +76,11 @@ class ViewModel4K @Inject constructor() : ViewModel() {
                 curState.postValue( State.Loading)
                 val apiService = ApiService.getInstance()
                 val a = apiService.get4Preview(url)
-                curState.postValue(State.Detail(a))
+                val state = State.Detail(a)
+                val stack = nestedStateStack.value
+                stack!!.add(state)
+                nestedStateStack.postValue(stack)
+                curState.postValue(state)
             }catch (e: Exception){
                 curState.postValue(State.Error(e.message))
             }

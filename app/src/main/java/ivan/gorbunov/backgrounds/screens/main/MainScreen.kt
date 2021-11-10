@@ -1,11 +1,13 @@
 package ivan.gorbunov.backgrounds.screens.main
 
 import android.graphics.drawable.Drawable
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.IconButton
@@ -45,16 +47,18 @@ import java.util.*
 @ExperimentalSerializationApi
 @Composable
 fun MainScreen(
-    navHostController: NavHostController,
     isShowTop: MutableState<Boolean>,
     isShowBottom: MutableState<Boolean>,
-    title: MutableState<Any>
+    title: MutableState<Any>,
+    onBack: () -> Unit
 ) {
     val viewModel = hiltViewModel<MainViewModel>()
     val curState = viewModel.curState.observeAsState()
-    val curStateMainBackground = viewModel.curMainBackground.observeAsState()
     val curRememberListState =
         if (viewModel.rememberListState.value == null) rememberLazyListState() else viewModel.rememberListState.value
+    if (viewModel.rememberListState.value == null){
+        viewModel.rememberListState.value = curRememberListState
+    }
     val circularProgressDrawable = CircularProgressDrawable(LocalContext.current)
     circularProgressDrawable.strokeWidth = 5f
     circularProgressDrawable.centerRadius = 30f
@@ -63,13 +67,15 @@ fun MainScreen(
     Crossfade(targetState = curState.value) { state ->
         when (state) {
             is MainViewModel.State.Data -> {
-
+                isShowTop.value = true
+                isShowBottom.value = true
                 viewModel.curMainBackground.value = state.data
                 circularProgressDrawable.start()
                 MainListScreen(
                     mainItem = state.data,
                     viewModel = viewModel,
-                    circularProgressDrawable
+                    circularProgressDrawable,
+                    curRememberListState!!
                 )
 //                LazyColumn(state = curRememberListState!!) {
 ////                    state.data.forEach {
@@ -112,6 +118,8 @@ fun MainScreen(
         }
     }
 
+    BackHandler(true, onBack )
+
 }
 
 @ExperimentalSerializationApi
@@ -119,7 +127,8 @@ fun MainScreen(
 fun MainListScreen(
     mainItem: MainBackgrounds,
     viewModel: MainViewModel,
-    circularProgressDrawable: CircularProgressDrawable
+    circularProgressDrawable: CircularProgressDrawable,
+    listState: LazyListState
 ) {
     val previews = mainItem.categories_all.chunked(3)
     BoxWithConstraints {
@@ -132,7 +141,7 @@ fun MainListScreen(
                 maxHeight,
                 maxWidth
             )
-            LazyColumn {
+            LazyColumn(state = listState) {
                 item {
                     CategoriesView(
                         mainItem.live_category.urlPhoto,

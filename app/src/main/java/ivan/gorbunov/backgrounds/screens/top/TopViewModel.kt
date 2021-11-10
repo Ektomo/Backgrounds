@@ -13,9 +13,9 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.ExperimentalSerializationApi
 import javax.inject.Inject
 
+@ExperimentalSerializationApi
 @HiltViewModel
 class TopViewModel @Inject constructor(): ViewModel() {
-    var curLiveLink = mutableStateOf("")
     val curState = MutableLiveData<State>(State.Loading)
     val curStateTopBackground = MutableLiveData<TopBackgrounds>()
 

@@ -7,7 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.MutableState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -16,8 +16,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavController
-import androidx.navigation.compose.currentBackStackEntryAsState
 import ivan.gorbunov.backgrounds.R
 import ivan.gorbunov.backgrounds.ui.theme.backgroundColor
 
@@ -28,13 +26,14 @@ sealed class NavigationItem(var route: String, var icon: Int) {
     object Layers : NavigationItem("layers", R.drawable.layers)
     object Box : NavigationItem("box", R.drawable.box)
     object Maximise : NavigationItem("maximise", R.drawable.maximise)
-    object Detail4K : NavigationItem("detail4K", 0)
 }
 
 @Composable
 fun TopBar(
     title: Any,
-    onBack: (() -> Unit)?
+    viewModel: NavigationViewModel
+
+//    onBack: (() -> Unit)?
 ) {
     val appBarHorizontalPadding = 4.dp
     val titleIconModifier = Modifier
@@ -48,19 +47,18 @@ fun TopBar(
         Box(Modifier.height(32.dp)) {
 
             //Navigation Icon
-            Row(titleIconModifier, verticalAlignment = Alignment.CenterVertically) {
-                CompositionLocalProvider(
-                    LocalContentAlpha provides ContentAlpha.high,
-                ) {
-                    IconButton(
-                        onClick = {
-                            if (onBack != null) {
-                                onBack()
-                            }
-                        },
-                        enabled = true,
+            if (viewModel.stateStack.value != null && viewModel.stateStack.value!!.size > 1) {
+                Row(titleIconModifier, verticalAlignment = Alignment.CenterVertically) {
+                    CompositionLocalProvider(
+                        LocalContentAlpha provides ContentAlpha.high,
                     ) {
-                        Icon(imageVector = Icons.Filled.ArrowBack, contentDescription = "back")
+                        IconButton(
+                            onClick = viewModel.onBack
+                            ,
+                            enabled = true,
+                        ) {
+                            Icon(imageVector = Icons.Filled.ArrowBack, contentDescription = "back")
+                        }
                     }
                 }
             }
@@ -105,6 +103,30 @@ fun TopBar(
                     }
                 }
             }
+            if (viewModel.curState.value == NavigationItem.Image) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.align(Alignment.CenterEnd)
+                ) {
+                    CompositionLocalProvider(
+                        LocalContentAlpha provides ContentAlpha.high,
+                    ) {
+                        IconButton(
+                            onClick = {
+//                            if (onBack != null) {
+//                                onBack()
+//                            }
+                            },
+                            enabled = true,
+                        ) {
+                            Icon(
+                                imageVector = ImageVector.vectorResource(id = R.drawable.ic_ellypsis_vertical),
+                                contentDescription = "back"
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -112,7 +134,7 @@ fun TopBar(
 }
 
 @Composable
-fun BottomNavigationBar(navController: NavController) {
+fun BottomNavigationBar(viewModel: NavigationViewModel) {
     val items = listOf(
         NavigationItem.Home,
         NavigationItem.Image,
@@ -124,8 +146,8 @@ fun BottomNavigationBar(navController: NavController) {
         backgroundColor = backgroundColor,
         contentColor = Color.Blue
     ) {
-        val navBackStackEntry by navController.currentBackStackEntryAsState()
-        val currentRoute = navBackStackEntry?.destination?.route
+//        val navBackStackEntry by navController.currentBackStackEntryAsState()
+//        val currentRoute = navBackStackEntry?.destination?.route
         items.forEach { item ->
             BottomNavigationItem(
 
@@ -141,22 +163,27 @@ fun BottomNavigationBar(navController: NavController) {
                 alwaysShowLabel = true,
                 selected = false,
                 onClick = {
-                    /* Add code later */
-                    navController.navigate(item.route) {
-                        // Pop up to the start destination of the graph to
-                        // avoid building up a large stack of destinations
-                        // on the back stack as users select items
-                        navController.graph.startDestinationRoute?.let { route ->
-                            popUpTo(route) {
-                                saveState = true
-                            }
-                        }
-                        // Avoid multiple copies of the same destination when
-                        // reselecting the same item
-                        launchSingleTop = true
-                        // Restore state when reselecting a previously selected item
-                        restoreState = true
+                    if (!viewModel.stateStack.value!!.contains(item)) {
+                        viewModel.stateStack.value!!.add(item)
                     }
+                    viewModel.curState.value = item
+
+                    /* Add code later */
+//                    navController.navigate(item.route) {
+//                        // Pop up to the start destination of the graph to
+//                        // avoid building up a large stack of destinations
+//                        // on the back stack as users select items
+//                        navController.graph.startDestinationRoute?.let { route ->
+//                            popUpTo(route) {
+//                                saveState = true
+//                            }
+//                        }
+//                        // Avoid multiple copies of the same destination when
+//                        // reselecting the same item
+//                        launchSingleTop = true
+//                        // Restore state when reselecting a previously selected item
+//                        restoreState = true
+//                    }
                 }
             )
         }

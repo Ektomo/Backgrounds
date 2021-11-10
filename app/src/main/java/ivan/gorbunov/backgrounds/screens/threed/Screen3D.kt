@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
 import androidx.compose.material.Text
@@ -41,12 +42,15 @@ import coil.compose.rememberImagePainter
 import coil.transform.RoundedCornersTransformation
 import ivan.gorbunov.backgrounds.R
 import ivan.gorbunov.backgrounds.api.baseUrl
+import ivan.gorbunov.backgrounds.navigation.NavigationViewModel
 import ivan.gorbunov.backgrounds.pojo.Backgrounds3D
 import ivan.gorbunov.backgrounds.pojo.Layer
 import ivan.gorbunov.backgrounds.screens.AdMobType
 import ivan.gorbunov.backgrounds.screens.AdMobView
 import ivan.gorbunov.backgrounds.screens.fourk.ButtonSave
 import ivan.gorbunov.backgrounds.screens.LoadingView
+import ivan.gorbunov.backgrounds.screens.live.PreviewLiveScreenItem
+import ivan.gorbunov.backgrounds.screens.live.ViewModelLive
 import ivan.gorbunov.backgrounds.screens.threed.opengl.GlView
 import kotlinx.serialization.ExperimentalSerializationApi
 import java.util.*
@@ -55,19 +59,24 @@ import java.util.*
 @ExperimentalSerializationApi
 @Composable
 fun Screen3DList(
-    navHostController: NavHostController,
+    navigationViewModel: NavigationViewModel,
     isShowTop: MutableState<Boolean>,
     isShowBottom: MutableState<Boolean>,
-    title: MutableState<Any>
+    title: MutableState<Any>,
+    onBack: () -> Unit
 ) {
     val viewModel = hiltViewModel<ViewModel3D>()
     val curState = viewModel.curState.observeAsState()
-    val curStateDetailBackground = viewModel.curStateDetailBackground.observeAsState()
-    val curState3DList = viewModel.curState3DList.observeAsState()
     val curRememberListState =
         if (viewModel.rememberListState.value == null) rememberLazyListState() else viewModel.rememberListState.value
+    if (viewModel.rememberListState.value == null){
+        viewModel.rememberListState.value = curRememberListState
+    }
     val curRememberPreviewState =
         if (viewModel.rememberPreviewState.value == null) rememberLazyListState() else viewModel.rememberPreviewState.value
+    if (viewModel.rememberPreviewState.value == null){
+        viewModel.rememberPreviewState.value = curRememberListState
+    }
     val circularProgressDrawable = CircularProgressDrawable(LocalContext.current)
     circularProgressDrawable.strokeWidth = 5f
     circularProgressDrawable.centerRadius = 30f
@@ -77,6 +86,8 @@ fun Screen3DList(
         when (state) {
             is ViewModel3D.State.Data -> {
                 title.value = "3D Categories"
+                isShowTop.value = true
+                isShowBottom.value = true
                 viewModel.curState3DList.value = state.data
                 circularProgressDrawable.start()
                 LazyColumn(state = curRememberListState!!) {
@@ -102,7 +113,10 @@ fun Screen3DList(
                 isShowTop.value = true
                 isShowBottom.value = true
                 viewModel.curStateDetailBackground.value = state.data
-                Preview3DList(state, curRememberPreviewState, viewModel)
+                Preview3DList(state, curRememberPreviewState, viewModel){
+                    viewModel.nestedStateStack.value!!.removeLast()
+                    viewModel.curState.value = viewModel.nestedStateStack.value!!.last()
+                }
             }
             ViewModel3D.State.Loading -> {
                 LoadingView()
@@ -111,29 +125,23 @@ fun Screen3DList(
                 isShowTop.value = false
                 isShowBottom.value = false
                 Screen3D(list = state.files) {
-                    viewModel.curState.value = ViewModel3D.State.Detail(curStateDetailBackground.value!!)
+                    viewModel.nestedStateStack.value!!.removeLast()
+                    viewModel.curState.value = viewModel.nestedStateStack.value!!.last()
                 }
             }
             null -> throw IllegalStateException()
         }
     }
 
+    BackHandler(true, onBack )
 
-    if (curState.value is ViewModel3D.State.Detail) {
-        BackHandler(true) {
-            isShowTop.value = true
-            isShowBottom.value = true
-            when (curState.value) {
-                is ViewModel3D.State.Detail -> {
-                    viewModel.curState.value = ViewModel3D.State.Data(curState3DList.value!!)
-                }
-                else -> {
-                    navHostController.popBackStack()
-                }
-            }
+    LaunchedEffect(key1 = viewModel.nestedStateStack.value?.size){
+        if (viewModel.nestedStateStack.value?.size == 1){
+            navigationViewModel.onBack = onBack
+        }else{
+            navigationViewModel.onBack = viewModel.onBack
         }
     }
-
 }
 
 @ExperimentalSerializationApi
@@ -141,48 +149,41 @@ fun Screen3DList(
 private fun Preview3DList(
     state: ViewModel3D.State.Detail,
     curRememberPreviewState: LazyListState?,
-    viewModel: ViewModel3D
+    viewModel: ViewModel3D,
+    onBack: () -> Unit
 ) {
     val context = LocalContext.current
     val needLoad = remember {
         mutableStateOf(false)
     }
     val curPreview3D = viewModel.curPreview3D.observeAsState()
-    val (o, t) = state.data.array.partition { state.data.array.indexOf(it) % 2 == 0 }
+    val previews = state.data.array.chunked(2)
     BoxWithConstraints {
         val maxWidth = maxWidth
         val maxHeight = maxHeight
         LazyColumn(state = curRememberPreviewState!!, contentPadding = PaddingValues(2.dp)) {
-            o.forEachIndexed { i, oV ->
+            previews.forEach { list ->
                 item {
                     Row {
-                        Preview3DScreenItem(
-                            modifier = Modifier.clickable {
-                                needLoad.value = true
-                                viewModel.curPreview3D.value = oV
-                            },
-                            url = oV.preview_url,
-                            int = maxWidth / 2,
-                            height = maxHeight / 2
-                        )
-                        Spacer(modifier = Modifier.padding(1.dp))
-                        if (t.size - 1 >= i) {
+                        list.forEach {
                             Preview3DScreenItem(
                                 modifier = Modifier.clickable {
                                     needLoad.value = true
-                                    viewModel.curPreview3D.value = t[i]
+                                    viewModel.curPreview3D.value = it
                                 },
-                                url = t[i].preview_url,
+                                url = it.preview_url,
                                 int = maxWidth / 2,
-                                maxHeight / 2
+                                height = maxHeight / 2
                             )
+                            Spacer(modifier = Modifier.padding(1.dp))
                         }
 
                     }
-
                     Spacer(modifier = Modifier.padding(1.dp))
                 }
+
             }
+
             item {
                 Spacer(modifier = Modifier.padding(bottom = 32.dp))
             }
@@ -195,6 +196,8 @@ private fun Preview3DList(
             needLoad.value = false
         }
     }
+
+    BackHandler(true, onBack)
 }
 
 @Composable
@@ -224,6 +227,11 @@ fun Screen3DItem(
     viewModel: ViewModel3D = viewModel()
 ) {
 
+    val context = LocalContext.current
+
+    val needLoad =  remember {
+        mutableStateOf(false)
+    }
     val loadingState = remember {
         mutableStateOf(false)
     }
@@ -231,22 +239,27 @@ fun Screen3DItem(
         Font(R.font.eastman_regular, FontWeight.Normal)
     )
     Column {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Box(modifier = Modifier.clickable {  viewModel.cur3DBackgroundLink.value = item.link
+            loadingState.value = true }) {
+
             Text(
-                text = item.nameCategory,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                text = item.nameCategory, modifier = Modifier
+                    .fillMaxWidth()
+                    .align(
+                        Alignment.Center
+                    )
+                    .padding(start = 8.dp), textAlign = TextAlign.Start,
                 fontSize = 17.sp,
                 fontWeight = FontWeight.Medium,
                 fontFamily = fontEastMan,
-
-                )
+            )
             IconButton(onClick = {
                 viewModel.cur3DBackgroundLink.value = item.link
                 loadingState.value = true
-            }) {
+            }, modifier = Modifier.align(Alignment.CenterEnd)) {
                 Image(Icons.Filled.ArrowForward, contentDescription = "forward")
             }
+
         }
         BoxWithConstraints(
             modifier = Modifier
@@ -275,7 +288,11 @@ fun Screen3DItem(
                         contentDescription = null,
                         modifier = Modifier
                             .height(180.dp)
-                            .width(int / 4),
+                            .width(int / 4)
+                            .clickable {
+                                needLoad.value = true
+                                viewModel.curPreview3D.value = url
+                            },
                         contentScale = ContentScale.Crop
                     )
                 }
@@ -290,6 +307,13 @@ fun Screen3DItem(
         }
     }
 
+    LaunchedEffect(key1 = needLoad.value) {
+        if (needLoad.value && viewModel.curPreview3D.value != null) {
+            viewModel.saveImagesForParallax(viewModel.curPreview3D.value!!, context)
+            needLoad.value = false
+        }
+    }
+
 }
 
 @Composable
@@ -298,7 +322,6 @@ fun Screen3D(list: List<Layer>, onBack: () -> Unit) {
     var view: GlView? = null
     BoxWithConstraints(
         modifier = Modifier
-            .padding(horizontal = 2.dp)
             .fillMaxSize(),
     ) {
         val width = maxWidth

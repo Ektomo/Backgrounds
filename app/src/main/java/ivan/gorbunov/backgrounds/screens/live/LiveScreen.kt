@@ -22,6 +22,7 @@ import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -46,7 +47,6 @@ import coil.transform.RoundedCornersTransformation
 import com.google.android.exoplayer2.ExoPlayer
 import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.Player.REPEAT_MODE_ONE
-import com.google.android.exoplayer2.SimpleExoPlayer
 import com.google.android.exoplayer2.source.ProgressiveMediaSource
 import com.google.android.exoplayer2.ui.AspectRatioFrameLayout
 import com.google.android.exoplayer2.ui.PlayerView
@@ -55,33 +55,43 @@ import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory
 import com.google.android.exoplayer2.util.Util
 import ivan.gorbunov.backgrounds.R
 import ivan.gorbunov.backgrounds.api.baseUrl
+import ivan.gorbunov.backgrounds.navigation.NavigationViewModel
 import ivan.gorbunov.backgrounds.pojo.LiveBackgrounds
 import ivan.gorbunov.backgrounds.screens.AdMobType
 import ivan.gorbunov.backgrounds.screens.AdMobView
-import ivan.gorbunov.backgrounds.screens.fourk.ButtonSave
 import ivan.gorbunov.backgrounds.screens.LoadingView
+import ivan.gorbunov.backgrounds.screens.fourk.ButtonSave
+import ivan.gorbunov.backgrounds.screens.fourk.Preview4KScreenItem
+import ivan.gorbunov.backgrounds.screens.fourk.ViewModel4K
 import kotlinx.serialization.ExperimentalSerializationApi
 import java.util.*
 
 @ExperimentalSerializationApi
 @Composable
 fun ScreenLiveList(
-    navHostController: NavHostController,
+    navigationViewModel: NavigationViewModel,
     isShowTop: MutableState<Boolean>,
     isShowBottom: MutableState<Boolean>,
-    title: MutableState<Any>
+    title: MutableState<Any>,
+    onBack: () -> Unit
 ) {
     val viewModel = hiltViewModel<ViewModelLive>()
     val curState = viewModel.curState.observeAsState()
-    val curStateDetailBackground = viewModel.curStateDetailBackground.observeAsState()
-    val curStateLiveList = viewModel.curStateLiveList.observeAsState()
     val curRememberListState =
         if (viewModel.rememberListState.value == null) rememberLazyListState() else viewModel.rememberListState.value
+    if (viewModel.rememberListState.value == null){
+        viewModel.rememberListState.value = curRememberListState
+    }
     val curRememberPreviewState =
         if (viewModel.rememberPreviewState.value == null) rememberLazyListState() else viewModel.rememberPreviewState.value
+    if (viewModel.rememberPreviewState.value == null){
+        viewModel.rememberPreviewState.value = curRememberPreviewState
+    }
     val circularProgressDrawable = CircularProgressDrawable(LocalContext.current)
     circularProgressDrawable.strokeWidth = 5f
     circularProgressDrawable.centerRadius = 30f
+
+
 
 
     Crossfade(targetState = curState.value) { state ->
@@ -90,13 +100,15 @@ fun ScreenLiveList(
                 title.value = "Live Categories"
                 viewModel.curStateLiveList.value = state.data
                 circularProgressDrawable.start()
+                isShowTop.value = true
+                isShowBottom.value = true
                 LazyColumn(state = curRememberListState!!) {
                     state.data.forEach {
                         item {
-                            ScreenLiveItem(item = it, circularProgressDrawable)
+                            ScreenLiveItem(item = it, circularProgressDrawable, viewModel)
                         }
                     }
-                    item{
+                    item {
                         Spacer(modifier = Modifier.padding(bottom = 32.dp))
                     }
                 }
@@ -113,7 +125,10 @@ fun ScreenLiveList(
                 isShowTop.value = true
                 isShowBottom.value = true
                 viewModel.curStateDetailBackground.value = state.data
-                PreviewLiveList(state, curRememberPreviewState, viewModel)
+                PreviewLiveList(state, curRememberPreviewState, viewModel){
+                    viewModel.nestedStateStack.value!!.removeLast()
+                    viewModel.curState.value = viewModel.nestedStateStack.value!!.last()
+                }
             }
             ViewModelLive.State.Loading -> {
                 LoadingView()
@@ -123,81 +138,79 @@ fun ScreenLiveList(
                 isShowTop.value = false
                 isShowBottom.value = false
                 ScreenLive(item = state.url) {
-                    viewModel.curState.value =
-                        ViewModelLive.State.Detail(curStateDetailBackground.value!!)
+                    viewModel.nestedStateStack.value!!.removeLast()
+                    viewModel.curState.value = viewModel.nestedStateStack.value!!.last()
                 }
             }
             null -> throw IllegalStateException()
         }
     }
 
+    BackHandler(true, onBack )
 
-    if (curState.value is ViewModelLive.State.Detail) {
-        BackHandler(true) {
-            isShowTop.value = true
-            isShowBottom.value = true
-            when (curState.value) {
-                is ViewModelLive.State.Detail -> {
-                    viewModel.curState.value = ViewModelLive.State.Data(curStateLiveList.value!!)
-                }
-                else -> {
-                    navHostController.popBackStack()
-                }
-            }
+    LaunchedEffect(key1 = viewModel.nestedStateStack.value?.size){
+        if (viewModel.nestedStateStack.value?.size == 1){
+            navigationViewModel.onBack = onBack
+        }else{
+            navigationViewModel.onBack = viewModel.onBack
         }
     }
 
 }
 
+@ExperimentalSerializationApi
 @Composable
 private fun PreviewLiveList(
     state: ViewModelLive.State.Detail,
     curRememberPreviewState: LazyListState?,
-    viewModel: ViewModelLive
+    viewModel: ViewModelLive,
+    onBack: () -> Unit
 ) {
-    val (o, t) = state.data.array.partition { state.data.array.indexOf(it) % 2 == 0 }
+    val previews = state.data.array.chunked(2)
+
     BoxWithConstraints {
         val maxWidth = maxWidth
         val maxHeight = maxHeight
         LazyColumn(state = curRememberPreviewState!!, contentPadding = PaddingValues(2.dp)) {
-            o.forEachIndexed { i, oV ->
+            previews.forEach { list ->
                 item {
                     Row {
-                        PreviewLiveScreenItem(
-                            modifier = Modifier.clickable {
-                                viewModel.curState.value =
-                                    ViewModelLive.State.Choose(oV.url)
-                            },
-                            url = oV.preview_url,
-                            int = maxWidth / 2,
-                            height = maxHeight / 2
-                        )
-                        Spacer(modifier = Modifier.padding(1.dp))
-                        if (t.size - 1 >= i) {
+                        list.forEach {
                             PreviewLiveScreenItem(
                                 modifier = Modifier.clickable {
+                                    viewModel.nestedStateStack.value!!.add(
+                                        ViewModelLive.State.Choose(
+                                            it.url
+                                        )
+                                    )
                                     viewModel.curState.value =
-                                        ViewModelLive.State.Choose(t[i].url)
+                                        ViewModelLive.State.Choose(it.url)
                                 },
-                                url = t[i].preview_url,
+                                url = it.preview_url,
                                 int = maxWidth / 2,
-                                maxHeight / 2
+                                height = maxHeight / 2,
+                                viewModel
                             )
+                            Spacer(modifier = Modifier.padding(1.dp))
                         }
-                    }
 
+                    }
                     Spacer(modifier = Modifier.padding(1.dp))
                 }
+
             }
             item {
                 Spacer(modifier = Modifier.padding(bottom = 32.dp))
             }
         }
     }
+
+    BackHandler(true, onBack)
 }
 
+@ExperimentalSerializationApi
 @Composable
-fun PreviewLiveScreenItem(modifier: Modifier = Modifier, url: String, int: Dp, height: Dp) {
+fun PreviewLiveScreenItem(modifier: Modifier = Modifier, url: String, int: Dp, height: Dp, viewModel: ViewModelLive) {
     Row(
         modifier = modifier
     ) {
@@ -213,13 +226,19 @@ fun PreviewLiveScreenItem(modifier: Modifier = Modifier, url: String, int: Dp, h
         )
     }
 
+    BackHandler(true) {
+        viewModel.nestedStateStack.value!!.removeLast()
+        viewModel.curState.value = viewModel.nestedStateStack.value!!.last()
+    }
+
 }
 
+@ExperimentalSerializationApi
 @Composable
 fun ScreenLiveItem(
     item: LiveBackgrounds,
     circularProgressDrawable: Drawable,
-    viewModelLive: ViewModelLive = viewModel()
+    viewModelLive: ViewModelLive
 ) {
 
     val loadingState = remember {
@@ -229,23 +248,48 @@ fun ScreenLiveItem(
         Font(R.font.eastman_regular, FontWeight.Normal)
     )
     Column {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Box(modifier = Modifier.clickable {
+            viewModelLive.curLiveLink.value = item.link
+            loadingState.value = true
+        }) {
             Text(
                 text = item.nameCategory,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(
+                        Alignment.Center
+                    )
+                    .padding(start = 8.dp),
+                textAlign = TextAlign.Start,
                 fontSize = 17.sp,
                 fontWeight = FontWeight.Medium,
                 fontFamily = fontEastMan,
-
-                )
+            )
             IconButton(onClick = {
                 viewModelLive.curLiveLink.value = item.link
                 loadingState.value = true
-            }) {
+            }, modifier = Modifier.align(Alignment.CenterEnd)) {
                 Image(Icons.Filled.ArrowForward, contentDescription = "forward")
             }
+
         }
+//        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+//            Text(
+//                text = item.nameCategory,
+//                textAlign = TextAlign.Center,
+//                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+//                fontSize = 17.sp,
+//                fontWeight = FontWeight.Medium,
+//                fontFamily = fontEastMan,
+//
+//                )
+//            IconButton(onClick = {
+//                viewModelLive.curLiveLink.value = item.link
+//                loadingState.value = true
+//            }) {
+//                Image(Icons.Filled.ArrowForward, contentDescription = "forward")
+//            }
+//        }
         BoxWithConstraints(
             modifier = Modifier
                 .padding(horizontal = 2.dp)
@@ -274,7 +318,16 @@ fun ScreenLiveItem(
                         contentDescription = null,
                         modifier = Modifier
                             .height(180.dp)
-                            .width(int / 4),
+                            .width(int / 4)
+                            .clickable {
+                                viewModelLive.nestedStateStack.value!!.add(
+                                    ViewModelLive.State.Choose(
+                                        url.url
+                                    )
+                                )
+                                viewModelLive.curState.value =
+                                    ViewModelLive.State.Choose(url.url)
+                            },
                         contentScale = ContentScale.Crop
                     )
                 }
@@ -355,10 +408,10 @@ fun ScreenLive(item: String, onBack: () -> Unit) {
                         p.hideController()
                     }
                 }
-                p.setOnClickListener{
-                    if (p.player!!.isPlaying){
+                p.setOnClickListener {
+                    if (p.player!!.isPlaying) {
                         p.player!!.pause()
-                    }else{
+                    } else {
                         p.player!!.play()
                     }
                 }
@@ -376,20 +429,26 @@ fun ScreenLive(item: String, onBack: () -> Unit) {
 
         }
         IconButton(onClick = onBack) {
-            Icon(imageVector = Icons.Filled.ArrowBack, contentDescription = "back")
+            Icon(imageVector = Icons.Filled.ArrowBack, contentDescription = "back", tint = Color.White)
         }
 
         IconButton(
             onClick = {
-            if (exoPlayer.volume > 0){
-                exoPlayer.volume = 0f
-            }else{
-                exoPlayer.volume = 0.8f
-            }
+                if (exoPlayer.volume > 0) {
+                    exoPlayer.volume = 0f
+                } else {
+                    exoPlayer.volume = 0.8f
+                }
             },
-        modifier = Modifier
-            .align(Alignment.TopEnd).padding(top = 4.dp)) {
-            Icon(imageVector = ImageVector.vectorResource(R.drawable.ic_volume_off), contentDescription = "volume")
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = 4.dp)
+        ) {
+            Icon(
+                imageVector = ImageVector.vectorResource(R.drawable.ic_volume_off),
+                contentDescription = "volume",
+                tint = Color.White
+            )
         }
 
         BackHandler(true, onBack)

@@ -42,6 +42,7 @@ import coil.compose.rememberImagePainter
 import coil.transform.RoundedCornersTransformation
 import ivan.gorbunov.backgrounds.R
 import ivan.gorbunov.backgrounds.api.baseUrl
+import ivan.gorbunov.backgrounds.navigation.NavigationViewModel
 import ivan.gorbunov.backgrounds.pojo.Backgrounds4K
 import ivan.gorbunov.backgrounds.screens.AdMobType
 import ivan.gorbunov.backgrounds.screens.AdMobView
@@ -53,22 +54,31 @@ import java.util.*
 @ExperimentalSerializationApi
 @Composable
 fun Screen4kList(
-    navHostController: NavHostController,
+    navigationViewModel: NavigationViewModel,
     isShowTop: MutableState<Boolean>,
     isShowBottom: MutableState<Boolean>,
-    title: MutableState<Any>
+    title: MutableState<Any>,
+    onBack: () -> Unit
 ) {
     val viewModel = hiltViewModel<ViewModel4K>()
+
+
     val curState = viewModel.curState.observeAsState()
-    val curStateDetailBackground = viewModel.curStateDetailBackground.observeAsState()
-    val curState4KList = viewModel.curState4KList.observeAsState()
     val curRememberListState =
         if (viewModel.rememberListState.value == null) rememberLazyListState() else viewModel.rememberListState.value
+    if (viewModel.rememberListState.value == null){
+        viewModel.rememberListState.value = curRememberListState
+    }
     val curRememberPreviewState =
         if (viewModel.rememberPreviewState.value == null) rememberLazyListState() else viewModel.rememberPreviewState.value
+    if (viewModel.rememberPreviewState.value == null){
+        viewModel.rememberPreviewState.value = curRememberPreviewState
+    }
     val circularProgressDrawable = CircularProgressDrawable(LocalContext.current)
     circularProgressDrawable.strokeWidth = 5f
     circularProgressDrawable.centerRadius = 30f
+
+
 
 
     Crossfade(targetState = curState.value) { state ->
@@ -77,13 +87,15 @@ fun Screen4kList(
                 title.value = "4k Categories"
                 viewModel.curState4KList.value = state.data
                 circularProgressDrawable.start()
+                isShowTop.value = true
+                isShowBottom.value = true
                 LazyColumn(state = curRememberListState!!) {
                     state.data.forEach {
                         item {
                             Screen4kItem(item = it, circularProgressDrawable)
                         }
                     }
-                    item{
+                    item {
                         Spacer(Modifier.padding(32.dp))
                     }
                 }
@@ -101,7 +113,11 @@ fun Screen4kList(
                 isShowTop.value = true
                 isShowBottom.value = true
                 viewModel.curStateDetailBackground.value = state.data
-                Preview4KList(state, curRememberPreviewState, viewModel)
+                Preview4KList(state, curRememberPreviewState, viewModel) {
+                    viewModel.nestedStateStack.value!!.removeLast()
+                    viewModel.curState.value = viewModel.nestedStateStack.value!!.last()
+
+                }
 
             }
             ViewModel4K.State.Loading -> {
@@ -111,30 +127,23 @@ fun Screen4kList(
                 isShowTop.value = false
                 isShowBottom.value = false
                 Screen4K(item = state.url, circularProgressDrawable) {
-                    viewModel.curState.value =
-                        ViewModel4K.State.Detail(curStateDetailBackground.value!!)
+                    viewModel.nestedStateStack.value!!.removeLast()
+                    viewModel.curState.value = viewModel.nestedStateStack.value!!.last()
                 }
-
             }
             null -> throw IllegalStateException()
         }
     }
 
-
-    if (curState.value is ViewModel4K.State.Detail) {
-        BackHandler(true) {
-            isShowTop.value = true
-            isShowBottom.value = true
-            when (curState.value) {
-                is ViewModel4K.State.Detail -> {
-                    viewModel.curState.value = ViewModel4K.State.Data(curState4KList.value!!)
-                }
-                else -> {
-                    navHostController.popBackStack()
-                }
-            }
+    LaunchedEffect(key1 = viewModel.nestedStateStack.value?.size){
+        if (viewModel.nestedStateStack.value?.size == 1){
+            navigationViewModel.onBack = onBack
+        }else{
+            navigationViewModel.onBack = viewModel.onBack
         }
     }
+
+    BackHandler(true, onBack )
 
 }
 
@@ -144,50 +153,55 @@ private fun Preview4KList(
     state: ViewModel4K.State.Detail,
     curRememberPreviewState: LazyListState?,
     viewModel: ViewModel4K,
+    onBack: () -> Unit
 ) {
-    val (o, t) = state.data.array.partition { state.data.array.indexOf(it) % 2 == 0 }
+    val previews = state.data.array.chunked(2)
+//    val (o, t) = state.data.array.partition { state.data.array.indexOf(it) % 2 == 0 }
     BoxWithConstraints {
         val maxWidth = maxWidth
         val maxHeight = maxHeight
         LazyColumn(state = curRememberPreviewState!!, contentPadding = PaddingValues(2.dp)) {
-            o.forEachIndexed { i, oV ->
+            previews.forEach { list ->
+
                 item {
                     Row {
-                        Preview4KScreenItem(
-                            modifier = Modifier.clickable {
-                                viewModel.curState.value =
-                                    ViewModel4K.State.Choose(oV.url)
-                            },
-                            url = oV.preview_url,
-                            int = maxWidth / 2,
-                            height = maxHeight / 2
-                        )
-                        if (t.size - 1 >= i) {
-                            Spacer(modifier = Modifier.padding(1.dp))
+
+                        list.forEach {
                             Preview4KScreenItem(
                                 modifier = Modifier.clickable {
+                                    viewModel.nestedStateStack.value!!.add(
+                                        ViewModel4K.State.Choose(
+                                            it.url
+                                        )
+                                    )
                                     viewModel.curState.value =
-                                        ViewModel4K.State.Choose(t[i].url)
+                                        ViewModel4K.State.Choose(it.url)
                                 },
-                                url = t[i].preview_url,
+                                url = it.preview_url,
                                 int = maxWidth / 2,
-                                maxHeight / 2
+                                height = maxHeight / 2,
+                                viewModel
                             )
+                            Spacer(modifier = Modifier.padding(1.dp))
                         }
-                    }
 
+                    }
                     Spacer(modifier = Modifier.padding(1.dp))
                 }
+
             }
+
             item {
                 Spacer(modifier = Modifier.padding(bottom = 32.dp))
             }
         }
     }
+    BackHandler(true, onBack)
 }
 
+@ExperimentalSerializationApi
 @Composable
-fun Preview4KScreenItem(modifier: Modifier = Modifier, url: String, int: Dp, height: Dp) {
+fun Preview4KScreenItem(modifier: Modifier = Modifier, url: String, int: Dp, height: Dp, viewModel4K: ViewModel4K) {
     Row(
         modifier = modifier
     ) {
@@ -203,8 +217,14 @@ fun Preview4KScreenItem(modifier: Modifier = Modifier, url: String, int: Dp, hei
         )
     }
 
+    BackHandler(true) {
+        viewModel4K.nestedStateStack.value!!.removeLast()
+        viewModel4K.curState.value = viewModel4K.nestedStateStack.value!!.last()
+    }
+
 }
 
+@ExperimentalSerializationApi
 @Composable
 fun Screen4kItem(
     item: Backgrounds4K,
@@ -219,22 +239,30 @@ fun Screen4kItem(
         Font(R.font.eastman_regular, FontWeight.Normal)
     )
     Column {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Box(modifier = Modifier.clickable {
+            viewModel4K.cur4KBackgroundLink.value = item.link
+            loadingState.value = true
+        }) {
             Text(
                 text = item.nameCategory,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(
+                        Alignment.Center
+                    )
+                    .padding(start = 8.dp),
+                textAlign = TextAlign.Start,
                 fontSize = 17.sp,
                 fontWeight = FontWeight.Medium,
                 fontFamily = fontEastMan,
-
-                )
+            )
             IconButton(onClick = {
                 viewModel4K.cur4KBackgroundLink.value = item.link
                 loadingState.value = true
-            }) {
+            }, modifier = Modifier.align(Alignment.CenterEnd)) {
                 Image(Icons.Filled.ArrowForward, contentDescription = "forward")
             }
+
         }
         BoxWithConstraints(
             modifier = Modifier
@@ -264,7 +292,16 @@ fun Screen4kItem(
                         contentDescription = null,
                         modifier = Modifier
                             .height(180.dp)
-                            .width(int / 4),
+                            .width(int / 4)
+                            .clickable {
+                                viewModel4K.nestedStateStack.value!!.add(
+                                    ViewModel4K.State.Choose(
+                                        url.url
+                                    )
+                                )
+                                viewModel4K.curState.value =
+                                    ViewModel4K.State.Choose(url.url)
+                            },
                         contentScale = ContentScale.Crop
                     )
                 }
@@ -278,11 +315,10 @@ fun Screen4kItem(
             loadingState.value = false
         }
     }
-
 }
 
 @Composable
-fun Screen4K(item: String,circularProgressDrawable: Drawable, onBack: () -> Unit) {
+fun Screen4K(item: String, circularProgressDrawable: Drawable, onBack: () -> Unit) {
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize(),
@@ -332,8 +368,7 @@ fun ButtonSave(modifier: Modifier = Modifier, onClickAction: () -> Unit) {
             colors = ButtonDefaults.buttonColors(Color(0xFFEBEFFB)),
             modifier = modifier
                 .size(74.dp)
-                .clip(RoundedCornerShape(25.dp))
-            , onClick = onClickAction
+                .clip(RoundedCornerShape(25.dp)), onClick = onClickAction
         ) {
             Column() {
                 Image(

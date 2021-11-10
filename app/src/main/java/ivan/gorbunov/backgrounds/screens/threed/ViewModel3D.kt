@@ -11,6 +11,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import ivan.gorbunov.backgrounds.api.ApiService
 import ivan.gorbunov.backgrounds.api.FileApi
 import ivan.gorbunov.backgrounds.pojo.*
+import ivan.gorbunov.backgrounds.screens.live.ViewModelLive
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
@@ -26,16 +27,22 @@ import javax.inject.Inject
 @ExperimentalSerializationApi
 @HiltViewModel
 class ViewModel3D @Inject constructor(): ViewModel() {
-    val TAG = "ViewModel3D"
     var cur3DBackgroundLink = mutableStateOf("")
     val curState = MutableLiveData<State>(State.Loading)
     val curStateDetailBackground = MutableLiveData<Preview3DList>()
     val curState3DList = MutableLiveData<List<Backgrounds3D>>()
 
+    val nestedStateStack = MutableLiveData<MutableList<State>>(mutableListOf())
+
     val rememberListState = MutableLiveData<LazyListState>()
     val rememberPreviewState = MutableLiveData<LazyListState>()
     val curPreview3D = MutableLiveData<Preview3D>()
-    val fileApi = FileApi()
+    private val fileApi = FileApi()
+
+    var onBack = {
+        nestedStateStack.value!!.removeLast()
+        curState.value = nestedStateStack.value!!.last()
+    }
 
     init {
         get3D()
@@ -56,12 +63,16 @@ class ViewModel3D @Inject constructor(): ViewModel() {
 
     @ExperimentalSerializationApi
     fun get3D() {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.Default) {
             try{
-                curState.value = State.Loading
+                curState.postValue(State.Loading)
                 val apiService = ApiService.getInstance()
                 val a = apiService.get3DBackgrounds()
-                curState.value = State.Data(a)
+                val state = State.Data(a)
+                val stack = nestedStateStack.value
+                stack!!.add(state)
+                nestedStateStack.postValue(stack)
+                curState.postValue(state)
             }catch (e: Exception){
                 curState.value = State.Error(e.message)
             }
@@ -77,7 +88,11 @@ class ViewModel3D @Inject constructor(): ViewModel() {
                 curState.postValue(State.Loading)
                 val apiService = ApiService.getInstance()
                 val a = apiService.get3DPreview(url)
-                curState.postValue(State.Detail(a))
+                val state = State.Detail(a)
+                val stack = nestedStateStack.value
+                stack!!.add(state)
+                nestedStateStack.postValue(stack)
+                curState.postValue(state)
             }catch (e: Exception){
                 curState.postValue(State.Error(e.message))
             }
@@ -114,13 +129,17 @@ class ViewModel3D @Inject constructor(): ViewModel() {
                 val thirdFile =
                     thirdResponse.await()
                 if (firstFile != null && secondFile != null && thirdFile != null) {
-                    curState.postValue( State.Choose(
+                    val state = State.Choose(
                         listOf(
                             Layer(firstFile, 6),
                             Layer(secondFile, 4),
                             Layer(thirdFile, 2)
                         )
-                    ))
+                    )
+                    val stack = nestedStateStack.value
+                    stack!!.add(state)
+                    nestedStateStack.postValue(stack)
+                    curState.postValue(state)
                 }
             }catch (e: Exception){
                 curState.postValue(State.Error(e.localizedMessage))
